@@ -163,12 +163,23 @@ class ApiClient {
     if (response != null) {
       final body = response.data;
       String message = 'Something went wrong. Please try again.';
-      Map<String, dynamic>? errors;
+      List<dynamic>? errors;
       if (body is Map<String, dynamic>) {
         final serverMessage = body['message'];
         if (serverMessage is String && serverMessage.isNotEmpty) message = serverMessage;
-        if (body['errors'] is Map<String, dynamic>) {
-          errors = body['errors'] as Map<String, dynamic>;
+        // Joi validation failures always send { message: "Validation failed",
+        // errors: [{ field, message }, ...] } (see validation.middleware.js).
+        // The generic top-level message alone doesn't tell the user what to
+        // fix, so fold the field-level detail into it when present.
+        if (body['errors'] is List) {
+          errors = body['errors'] as List<dynamic>;
+          final detail = errors
+              .whereType<Map>()
+              .map((e) => e['message'])
+              .whereType<String>()
+              .where((m) => m.isNotEmpty)
+              .join(' ');
+          if (detail.isNotEmpty) message = detail;
         }
       }
       return ApiException(message, statusCode: response.statusCode, errors: errors);

@@ -5,6 +5,9 @@ import { useToast } from '../context/ToastContext';
 import GoogleSignInButton from '../components/common/GoogleSignInButton';
 import AuthLayout from '../components/auth/AuthLayout';
 import { IconField, PasswordField, MailIcon, LockIcon, UserIcon, PhoneIcon } from '../components/auth/AuthInputs';
+import { isValidPhone } from '../lib/format';
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function Register() {
   const { register } = useAuth();
@@ -27,6 +30,14 @@ export default function Register() {
       setError('Please provide either an email or a phone number.');
       return;
     }
+    if (form.email && !EMAIL_PATTERN.test(form.email)) {
+      setError('Enter a valid email address.');
+      return;
+    }
+    if (form.phone && !isValidPhone(form.phone)) {
+      setError('Enter a valid phone number (10-15 digits).');
+      return;
+    }
 
     setSubmitting(true);
     try {
@@ -37,6 +48,14 @@ export default function Register() {
       toast.success('Account created!');
       navigate('/', { replace: true });
     } catch (err) {
+      // Not a failure — Supabase requires the user to confirm their email
+      // before a session is issued (see AuthContext.register). Route them to
+      // sign in with a success toast instead of showing this as an error.
+      if (err.message?.startsWith('Account created.')) {
+        toast.success(err.message);
+        navigate('/login', { replace: true });
+        return;
+      }
       setError(err.message || 'Could not create your account');
     } finally {
       setSubmitting(false);

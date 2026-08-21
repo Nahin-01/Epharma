@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/app_colors.dart';
+import '../../core/validators.dart';
 import '../../network/api_exception.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/app_button.dart';
@@ -36,8 +37,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   }
 
   Future<void> _requestCode() async {
-    if (_phoneController.text.trim().isEmpty) {
-      setState(() => _error = 'Please enter your phone number.');
+    if (!isValidPhone(_phoneController.text.trim())) {
+      setState(() => _error = 'Enter a valid phone number (10-15 digits).');
       return;
     }
     setState(() {

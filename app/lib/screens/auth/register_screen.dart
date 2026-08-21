@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/app_colors.dart';
+import '../../core/validators.dart';
 import '../../network/api_exception.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/app_button.dart';
@@ -49,6 +50,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
     if (email.isEmpty && phone.isEmpty) {
       setState(() => _error = 'Please provide either an email or a phone number.');
+      return;
+    }
+    if (email.isNotEmpty && !isValidEmail(email)) {
+      setState(() => _error = 'Enter a valid email address.');
+      return;
+    }
+    if (phone.isNotEmpty && !isValidPhone(phone)) {
+      setState(() => _error = 'Enter a valid phone number (10-15 digits).');
       return;
     }
     if (password.length < 8) {

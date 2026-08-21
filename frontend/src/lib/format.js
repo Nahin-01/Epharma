@@ -1,3 +1,12 @@
+// Mirrors the backend's Joi phone pattern (backend/src/modules/auth/auth.validation.js)
+// so malformed numbers get a clear message here instead of a generic
+// "Validation failed" bounce from the server.
+const PHONE_PATTERN = /^\+?[0-9]{10,15}$/;
+
+export function isValidPhone(value) {
+  return PHONE_PATTERN.test(String(value || '').trim());
+}
+
 export function formatBDT(amount) {
   const value = Number(amount) || 0;
   return `৳${value.toLocaleString('en-BD', { maximumFractionDigits: 2 })}`;

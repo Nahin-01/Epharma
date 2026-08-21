@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { authApi } from '../api/auth.api';
 import { usersApi } from '../api/users.api';
-import { clearTokens, onSessionExpired, setTokens } from '../lib/apiClient';
+import { clearTokens, getAccessToken, getAuthProvider, onSessionExpired, setTokens } from '../lib/apiClient';
 import { supabase } from '../lib/supabase';
 
 const AuthContext = createContext(null);
@@ -16,12 +16,15 @@ export function AuthProvider({ children }) {
     let cancelled = false;
     async function restoreSession() {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
+      // OTP-login sessions are issued by this backend's own JWTs, not
+      // Supabase, so a missing Supabase session doesn't mean the user is
+      // logged out — fall back to whatever access token is in storage.
+      if (!session && !getAccessToken()) {
         setLoading(false);
         return;
       }
       try {
-        setTokens({ accessToken: session.access_token });
+        if (session) setTokens({ accessToken: session.access_token, refreshToken: session.refresh_token, provider: 'supabase' });
         const me = await usersApi.getMe();
         if (!cancelled) setUser(me);
       } catch (err) {
@@ -36,11 +39,15 @@ export function AuthProvider({ children }) {
     restoreSession();
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (!session) {
+        // Supabase reporting "no session" doesn't apply to a locally-issued
+        // (OTP-login) session — leave those alone; they end via explicit
+        // logout() or the axios interceptor's own refresh-failure path.
+        if (getAuthProvider() === 'local') return;
         clearTokens();
         setUser(null);
         return;
       }
-      setTokens({ accessToken: session.access_token });
+      setTokens({ accessToken: session.access_token, refreshToken: session.refresh_token, provider: 'supabase' });
       try {
         const me = await usersApi.getMe();
         if (!cancelled) setUser(me);
@@ -57,7 +64,7 @@ export function AuthProvider({ children }) {
   useEffect(() => onSessionExpired(() => setUser(null)), []);
 
   const applyAuthResult = (result) => {
-    setTokens(result);
+    setTokens({ ...result, provider: 'local' });
     setUser(result.user);
     return result.user;
   };
@@ -66,7 +73,7 @@ export function AuthProvider({ children }) {
     const credentials = identifier.includes('@') ? { email: identifier } : { phone: identifier };
     const { data, error } = await supabase.auth.signInWithPassword({ ...credentials, password });
     if (error) throw error;
-    setTokens({ accessToken: data.session.access_token });
+    setTokens({ accessToken: data.session.access_token, refreshToken: data.session.refresh_token, provider: 'supabase' });
     const me = await usersApi.getMe();
     setUser(me);
     return me;
@@ -81,7 +88,7 @@ export function AuthProvider({ children }) {
     });
     if (error) throw error;
     if (!data.session) throw new Error('Account created. Check your email to confirm your account, then sign in.');
-    setTokens({ accessToken: data.session.access_token });
+    setTokens({ accessToken: data.session.access_token, refreshToken: data.session.refresh_token, provider: 'supabase' });
     const me = await usersApi.getMe();
     setUser(me);
     return me;

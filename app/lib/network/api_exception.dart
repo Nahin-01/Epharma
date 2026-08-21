@@ -4,7 +4,11 @@
 class ApiException implements Exception {
   final String message;
   final int? statusCode;
-  final Map<String, dynamic>? errors;
+
+  /// Per-field validation details, when the backend sent any — always a
+  /// list of `{field, message}` objects (see validation.middleware.js),
+  /// never a map.
+  final List<dynamic>? errors;
 
   ApiException(this.message, {this.statusCode, this.errors});
 

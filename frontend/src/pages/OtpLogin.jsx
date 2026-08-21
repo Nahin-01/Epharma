@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import AuthLayout from '../components/auth/AuthLayout';
 import { IconField, PhoneIcon, HashIcon, UserIcon } from '../components/auth/AuthInputs';
+import { isValidPhone } from '../lib/format';
 
 export default function OtpLogin() {
   const { requestOtp, verifyOtp } = useAuth();
@@ -21,6 +22,10 @@ export default function OtpLogin() {
   const handleRequest = async (e) => {
     e.preventDefault();
     setError(null);
+    if (!isValidPhone(phone)) {
+      setError('Enter a valid phone number (10-15 digits).');
+      return;
+    }
     setSubmitting(true);
     try {
       const result = await requestOtp({ phone, purpose: 'LOGIN' });

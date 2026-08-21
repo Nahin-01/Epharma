@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/app_colors.dart';
+import '../../core/validators.dart';
 import '../../network/api_exception.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/app_button.dart';
@@ -20,6 +21,7 @@ class OtpLoginScreen extends StatefulWidget {
 class _OtpLoginScreenState extends State<OtpLoginScreen> {
   final _phoneController = TextEditingController();
   final _codeController = TextEditingController();
+  final _nameController = TextEditingController();
 
   bool _codeSent = false;
   bool _submitting = false;
@@ -30,13 +32,14 @@ class _OtpLoginScreenState extends State<OtpLoginScreen> {
   void dispose() {
     _phoneController.dispose();
     _codeController.dispose();
+    _nameController.dispose();
     super.dispose();
   }
 
   Future<void> _requestCode() async {
     final phone = _phoneController.text.trim();
-    if (phone.isEmpty) {
-      setState(() => _error = 'Please enter your phone number.');
+    if (!isValidPhone(phone)) {
+      setState(() => _error = 'Enter a valid phone number (10-15 digits).');
       return;
     }
     setState(() {
@@ -73,7 +76,12 @@ class _OtpLoginScreenState extends State<OtpLoginScreen> {
       _error = null;
     });
     try {
-      final loggedIn = await context.read<AuthProvider>().verifyOtp(phone: phone, code: code, purpose: 'LOGIN');
+      final loggedIn = await context.read<AuthProvider>().verifyOtp(
+            phone: phone,
+            code: code,
+            purpose: 'LOGIN',
+            name: _nameController.text.trim(),
+          );
       if (loggedIn && mounted) Navigator.of(context).popUntil((route) => route.isFirst);
       if (!loggedIn) setState(() => _error = 'That code did not work. Please try again.');
     } on ApiException catch (e) {
@@ -124,6 +132,12 @@ class _OtpLoginScreenState extends State<OtpLoginScreen> {
                         label: '6-digit code',
                         keyboardType: TextInputType.number,
                         prefixIcon: const Icon(Icons.pin_outlined, size: 20),
+                      ),
+                      const SizedBox(height: 14),
+                      AppTextField(
+                        controller: _nameController,
+                        label: 'Name (only needed for a new account)',
+                        prefixIcon: const Icon(Icons.badge_outlined, size: 20),
                       ),
                     ],
                     if (_info != null) ...[

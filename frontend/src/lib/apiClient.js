@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { supabase } from './supabase';
 
 // Every request/response in this app follows the backend's consistent
 // envelope: { success, message, data, meta? } on 2xx, or
@@ -9,6 +10,11 @@ export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localho
 
 const ACCESS_TOKEN_KEY = 'epharmacy.accessToken';
 const REFRESH_TOKEN_KEY = 'epharmacy.refreshToken';
+// Which identity provider issued the current tokens: 'supabase' (password
+// login, Google OAuth) or 'local' (this backend's own OTP-login JWTs).
+// Needed because Supabase reporting "no session" doesn't mean a local
+// session has ended — see AuthContext's onAuthStateChange handler.
+const AUTH_PROVIDER_KEY = 'epharmacy.authProvider';
 
 export function getAccessToken() {
   return localStorage.getItem(ACCESS_TOKEN_KEY);
@@ -18,14 +24,20 @@ export function getRefreshToken() {
   return localStorage.getItem(REFRESH_TOKEN_KEY);
 }
 
-export function setTokens({ accessToken, refreshToken } = {}) {
+export function getAuthProvider() {
+  return localStorage.getItem(AUTH_PROVIDER_KEY);
+}
+
+export function setTokens({ accessToken, refreshToken, provider } = {}) {
   if (accessToken) localStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
   if (refreshToken) localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
+  if (provider) localStorage.setItem(AUTH_PROVIDER_KEY, provider);
 }
 
 export function clearTokens() {
   localStorage.removeItem(ACCESS_TOKEN_KEY);
   localStorage.removeItem(REFRESH_TOKEN_KEY);
+  localStorage.removeItem(AUTH_PROVIDER_KEY);
 }
 
 export const apiClient = axios.create({
@@ -53,6 +65,19 @@ export function onSessionExpired(listener) {
 let refreshPromise = null;
 
 async function refreshAccessToken() {
+  // Password-login and Google-OAuth sessions are issued by Supabase, not by
+  // this backend, so they must be refreshed through Supabase directly — the
+  // backend's /auth/refresh-token endpoint only verifies locally-issued
+  // (OTP-login) JWTs and will always reject a Supabase refresh token.
+  const { data: { session } } = await supabase.auth.getSession();
+  if (session) {
+    const { data, error } = await supabase.auth.refreshSession();
+    if (error) throw error;
+    const tokens = { accessToken: data.session.access_token, refreshToken: data.session.refresh_token };
+    setTokens(tokens);
+    return tokens;
+  }
+
   const refreshToken = getRefreshToken();
   if (!refreshToken) throw new Error('No refresh token available');
 
