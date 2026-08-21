@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#2dd4bf"/>
+      <stop offset="1" stop-color="#0d9488"/>
+    </linearGradient>
+    <clipPath id="capsule">
+      <rect x="6" y="15" width="28" height="10" rx="5" transform="rotate(-45 20 20)"/>
+    </clipPath>
+  </defs>
+  <rect width="40" height="40" rx="11" fill="url(#bg)"/>
+  <g clip-path="url(#capsule)">
+    <rect x="4" y="13" width="16" height="14" fill="#fff7ed"/>
+    <rect x="20" y="13" width="16" height="14" fill="#f97316"/>
+  </g>
+</svg>

@@ -1,0 +1,83 @@
+'use strict';
+
+const { ROLES } = require('./roles');
+
+const PERMISSIONS = Object.freeze({
+  PRODUCT_CREATE: 'product:create',
+  PRODUCT_UPDATE: 'product:update',
+  PRODUCT_DELETE: 'product:delete',
+  PRODUCT_VIEW: 'product:view',
+
+  INVENTORY_VIEW: 'inventory:view',
+  INVENTORY_UPDATE: 'inventory:update',
+
+  ORDER_VIEW: 'order:view',
+  ORDER_UPDATE: 'order:update',
+  ORDER_CANCEL: 'order:cancel',
+
+  PRESCRIPTION_VIEW: 'prescription:view',
+  PRESCRIPTION_REVIEW: 'prescription:review',
+
+  DOCTOR_CREATE: 'doctor:create',
+  DOCTOR_UPDATE: 'doctor:update',
+
+  REPORT_VIEW: 'report:view',
+
+  CUSTOMER_VIEW: 'customer:view',
+  CUSTOMER_UPDATE: 'customer:update',
+
+  COUPON_MANAGE: 'coupon:manage',
+  DELIVERY_MANAGE: 'delivery:manage',
+  PAYMENT_MANAGE: 'payment:manage',
+  NOTIFICATION_MANAGE: 'notification:manage',
+  ADMIN_MANAGE: 'admin:manage',
+  AUDIT_VIEW: 'audit:view',
+  SUPPORT_MANAGE: 'support:manage',
+});
+
+/**
+ * Role -> permission grants. SUPER_ADMIN implicitly has every permission
+ * (checked separately in the permission middleware) so it is left out here.
+ */
+const ROLE_PERMISSIONS = Object.freeze({
+  [ROLES.ADMIN]: Object.values(PERMISSIONS),
+  [ROLES.INVENTORY_MANAGER]: [
+    PERMISSIONS.PRODUCT_VIEW,
+    PERMISSIONS.PRODUCT_CREATE,
+    PERMISSIONS.PRODUCT_UPDATE,
+    PERMISSIONS.INVENTORY_VIEW,
+    PERMISSIONS.INVENTORY_UPDATE,
+    PERMISSIONS.REPORT_VIEW,
+  ],
+  [ROLES.ORDER_MANAGER]: [
+    PERMISSIONS.ORDER_VIEW,
+    PERMISSIONS.ORDER_UPDATE,
+    PERMISSIONS.ORDER_CANCEL,
+    PERMISSIONS.CUSTOMER_VIEW,
+    PERMISSIONS.DELIVERY_MANAGE,
+    PERMISSIONS.REPORT_VIEW,
+  ],
+  [ROLES.PHARMACY_MANAGER]: [
+    PERMISSIONS.PRESCRIPTION_VIEW,
+    PERMISSIONS.PRESCRIPTION_REVIEW,
+    PERMISSIONS.PRODUCT_VIEW,
+    PERMISSIONS.INVENTORY_VIEW,
+    PERMISSIONS.ORDER_VIEW,
+  ],
+  [ROLES.CUSTOMER_SUPPORT]: [
+    PERMISSIONS.CUSTOMER_VIEW,
+    PERMISSIONS.ORDER_VIEW,
+    PERMISSIONS.PRESCRIPTION_VIEW,
+    PERMISSIONS.SUPPORT_MANAGE,
+  ],
+  [ROLES.DELIVERY_MANAGER]: [
+    PERMISSIONS.DELIVERY_MANAGE,
+    PERMISSIONS.ORDER_VIEW,
+    PERMISSIONS.ORDER_UPDATE,
+  ],
+  [ROLES.REPORT_MANAGER]: [PERMISSIONS.REPORT_VIEW, PERMISSIONS.AUDIT_VIEW],
+  [ROLES.DOCTOR]: [PERMISSIONS.DOCTOR_UPDATE],
+  [ROLES.CUSTOMER]: [],
+});
+
+module.exports = { PERMISSIONS, ROLE_PERMISSIONS };

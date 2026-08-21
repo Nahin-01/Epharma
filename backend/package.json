@@ -1,0 +1,39 @@
+{
+  "name": "epharmacy-backend",
+  "version": "1.0.0",
+  "description": "ePharmacy platform backend - Express + MongoDB REST API serving the React web app, Flutter mobile app and admin/doctor portals.",
+  "main": "src/server.js",
+  "private": true,
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "worker": "node src/jobs/worker.js",
+    "worker:dev": "node --watch src/jobs/worker.js",
+    "seed": "node src/utils/seed.js",
+    "test": "node --test tests/",
+    "lint:syntax": "find src -name '*.js' -print0 | xargs -0 -n1 node --check"
+  },
+  "dependencies": {
+    "axios": "^1.7.7",
+    "bcryptjs": "^2.4.3",
+    "bullmq": "^5.12.0",
+    "compression": "^1.7.4",
+    "cookie-parser": "^1.4.6",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "express-rate-limit": "^7.4.0",
+    "helmet": "^7.1.0",
+    "ioredis": "^5.4.1",
+    "joi": "^17.13.3",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.6.0",
+    "morgan": "^1.10.0",
+    "multer": "^1.4.5-lts.1",
+    "winston": "^3.14.2"
+  },
+  "devDependencies": {}
+}
