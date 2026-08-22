@@ -1,5 +1,6 @@
 /// Central place for anything environment-specific. The backend base URL
-/// can be overridden at build/run time without touching code, e.g.:
+/// can be overridden at build/run time without touching code, e.g. to point
+/// at a local dev server instead of the deployed one:
 ///
 ///   flutter run --dart-define=API_BASE_URL=http://10.0.2.2:5000/api/v1
 ///
@@ -7,13 +8,13 @@
 /// `localhost` — use it (not `localhost`) when running the backend on your
 /// development machine and the app in the Android emulator. On a physical
 /// device, use your machine's LAN IP instead. iOS simulator can use
-/// `localhost` directly.
+/// `localhost` directly. See .vscode/launch.json for ready-made configs.
 class AppConstants {
   AppConstants._();
 
   static const String apiBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://10.0.2.2:5000/api/v1',
+    defaultValue: 'https://epharma-backend-j5y5.onrender.com/api/v1',
   );
 
   static const String appName = 'ePharmacy';
