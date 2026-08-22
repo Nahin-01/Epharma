@@ -74,12 +74,11 @@ export const PRESCRIPTION_STATUS_TRANSITIONS = {
   FULFILLED: [],
 };
 
+// Online gateways (bKash/Nagad/Rocket/SSLCommerz) need a trade license for a
+// live merchant account, so only COD is offered until one is in place. Add
+// the other entries back once a gateway is actually live.
 export const PAYMENT_METHODS = [
   { value: 'COD', label: 'Cash on Delivery' },
-  { value: 'BKASH', label: 'bKash' },
-  { value: 'NAGAD', label: 'Nagad' },
-  { value: 'ROCKET', label: 'Rocket' },
-  { value: 'SSLCOMMERZ', label: 'Card / SSLCommerz' },
 ];
 
 export const DISTRICTS = [
