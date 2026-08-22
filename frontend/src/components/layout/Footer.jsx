@@ -2,7 +2,10 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import LogoMark from '../common/LogoMark';
 
-const PAYMENT_METHODS = ['COD', 'bKash', 'Nagad', 'Rocket', 'Card'];
+// Only COD is actually wired up at checkout right now (see
+// lib/constants.js PAYMENT_METHODS) - online gateways need a trade license
+// we don't have yet, so don't advertise them here either.
+const PAYMENT_METHODS = ['Cash on Delivery'];
 
 const SOCIALS = [
   { label: 'Facebook', d: 'M14 9h3V6h-3a4 4 0 0 0-4 4v2H7v3h3v6h3v-6h3l1-3h-4v-2a1 1 0 0 1 1-1Z' },

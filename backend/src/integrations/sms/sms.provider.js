@@ -71,9 +71,45 @@ async function sendGeneric(to, message) {
   }
 }
 
+/** BD-only local format BulkSMSBD expects: "8801XXXXXXXXX", no leading +. */
+function toBdLocal(phone) {
+  const digits = String(phone).replace(/[^0-9]/g, '');
+  if (digits.startsWith('880')) return digits;
+  if (digits.startsWith('0')) return `880${digits.slice(1)}`;
+  return `880${digits}`;
+}
+
+async function sendBulkSmsBd(to, message) {
+  if (!env.sms.apiKey || !env.sms.senderId) {
+    logger.warn('BulkSMSBD api key or sender ID missing, falling back to mock');
+    return sendMock(to, message);
+  }
+  try {
+    const { data } = await axios.get('https://bulksmsbd.net/api/smsapi', {
+      params: {
+        api_key: env.sms.apiKey,
+        type: 'text',
+        senderid: env.sms.senderId,
+        number: toBdLocal(to),
+        message,
+      },
+    });
+    const code = Number(data?.response_code);
+    if (code !== 202) {
+      throw new Error(`BulkSMSBD error ${code}: ${data?.error_message || data?.message || JSON.stringify(data)}`);
+    }
+    return { provider: 'bulksmsbd', to, status: 'SENT', messageId: data?.message_id, raw: data };
+  } catch (err) {
+    const detail = err.response?.data || err.message;
+    logger.error(`BulkSMSBD SMS send failed: ${typeof detail === 'string' ? detail : JSON.stringify(detail)}`);
+    throw new Error(`BulkSMSBD SMS send failed: ${typeof detail === 'string' ? detail : JSON.stringify(detail)}`);
+  }
+}
+
 async function sendSms(to, message) {
   if (env.sms.provider === 'mock') return sendMock(to, message);
   if (env.sms.provider === 'twilio') return sendTwilio(to, message);
+  if (env.sms.provider === 'bulksmsbd') return sendBulkSmsBd(to, message);
   return sendGeneric(to, message);
 }
 
