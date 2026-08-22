@@ -7,6 +7,21 @@ export function isValidPhone(value) {
   return PHONE_PATTERN.test(String(value || '').trim());
 }
 
+// Supabase's phone auth (and the backend's OTP/reset flows) both need one
+// consistent E.164 string per user - without this, a Bangladeshi number
+// typed the natural local way ("01712345678") fails Supabase's phone
+// validation outright, and even when it doesn't, a mismatched format would
+// silently look up as a different user than the one who registered.
+// Mirrors backend/src/integrations/sms/sms.provider.js's toE164.
+export function normalizePhone(value) {
+  const digits = String(value || '').trim().replace(/[^0-9+]/g, '');
+  if (!digits) return digits;
+  if (digits.startsWith('+')) return digits;
+  if (digits.startsWith('880')) return `+${digits}`;
+  if (digits.startsWith('0')) return `+880${digits.slice(1)}`;
+  return `+880${digits}`;
+}
+
 export function formatBDT(amount) {
   const value = Number(amount) || 0;
   return `৳${value.toLocaleString('en-BD', { maximumFractionDigits: 2 })}`;

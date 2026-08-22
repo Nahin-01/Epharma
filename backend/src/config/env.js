@@ -47,6 +47,15 @@ const env = {
     clientId: process.env.GOOGLE_CLIENT_ID || '',
   },
 
+  jobs: {
+    // For a free-tier deploy with no separate background-worker service
+    // (e.g. Render's free plan only offers Web Services), this runs the
+    // BullMQ workers inside the API server process instead of requiring a
+    // second paid deploy. Leave unset when a real separate worker process
+    // (`npm run worker`) is running its own deploy.
+    runInline: toBool(process.env.RUN_WORKERS_INLINE, false),
+  },
+
   supabase: {
     url: process.env.SUPABASE_URL || '',
     anonKey: process.env.SUPABASE_ANON_KEY || '',
@@ -88,6 +97,7 @@ const env = {
     apiKey: process.env.SMS_API_KEY || '',
     apiSecret: process.env.SMS_API_SECRET || '',
     senderId: process.env.SMS_SENDER_ID || 'ePharmacy',
+    fromNumber: process.env.SMS_FROM_NUMBER || '',
   },
 
   payments: {

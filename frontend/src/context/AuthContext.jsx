@@ -3,6 +3,7 @@ import { authApi } from '../api/auth.api';
 import { usersApi } from '../api/users.api';
 import { clearTokens, getAccessToken, getAuthProvider, onSessionExpired, setTokens } from '../lib/apiClient';
 import { supabase } from '../lib/supabase';
+import { normalizePhone } from '../lib/format';
 
 const AuthContext = createContext(null);
 
@@ -70,7 +71,7 @@ export function AuthProvider({ children }) {
   };
 
   const login = async (identifier, password) => {
-    const credentials = identifier.includes('@') ? { email: identifier } : { phone: identifier };
+    const credentials = identifier.includes('@') ? { email: identifier } : { phone: normalizePhone(identifier) };
     const { data, error } = await supabase.auth.signInWithPassword({ ...credentials, password });
     if (error) throw error;
     setTokens({ accessToken: data.session.access_token, refreshToken: data.session.refresh_token, provider: 'supabase' });
@@ -80,11 +81,12 @@ export function AuthProvider({ children }) {
   };
 
   const register = async (payload) => {
-    const credentials = payload.email ? { email: payload.email } : { phone: payload.phone };
+    const normalizedPhone = payload.phone ? normalizePhone(payload.phone) : null;
+    const credentials = payload.email ? { email: payload.email } : { phone: normalizedPhone };
     const { data, error } = await supabase.auth.signUp({
       ...credentials,
       password: payload.password,
-      options: { data: { name: payload.name, full_name: payload.name, phone: payload.phone || null } },
+      options: { data: { name: payload.name, full_name: payload.name, phone: normalizedPhone } },
     });
     if (error) throw error;
     if (!data.session) throw new Error('Account created. Check your email to confirm your account, then sign in.');

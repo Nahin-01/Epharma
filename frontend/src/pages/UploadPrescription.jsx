@@ -2,6 +2,7 @@ import React, { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { prescriptionsApi } from '../api/prescriptions.api';
 import { useToast } from '../context/ToastContext';
+import PrescriptionDetailModal from '../components/prescriptions/PrescriptionDetailModal';
 
 const ACCEPTED_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
 const MAX_FILES = 5;
@@ -17,6 +18,7 @@ export default function UploadPrescription() {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState(null);
   const [result, setResult] = useState(null);
+  const [showModal, setShowModal] = useState(false);
 
   const addFiles = (list) => {
     const incoming = Array.from(list).filter((f) => ACCEPTED_TYPES.includes(f.type));
@@ -45,6 +47,7 @@ export default function UploadPrescription() {
     try {
       const prescription = await prescriptionsApi.upload(files, 'UPLOAD', setProgress);
       setResult(prescription);
+      setShowModal(true);
       toast.success('Prescription uploaded successfully');
     } catch (err) {
       setError(err.message || 'Could not upload prescription');
@@ -64,14 +67,22 @@ export default function UploadPrescription() {
             My Prescriptions.
           </p>
           <div className="mt-6 flex justify-center gap-3">
-            <button type="button" className="btn-outline" onClick={() => navigate('/prescriptions')}>
-              View my prescriptions
+            <button type="button" className="btn-outline" onClick={() => setShowModal(true)}>
+              View detected medicines
             </button>
             <button type="button" className="btn-primary" onClick={() => navigate('/products')}>
               Continue shopping
             </button>
           </div>
         </div>
+        {showModal && (
+          <PrescriptionDetailModal
+            prescription={result}
+            onClose={() => setShowModal(false)}
+            onUpdated={setResult}
+            toast={toast}
+          />
+        )}
       </div>
     );
   }

@@ -4,7 +4,6 @@ const { Worker } = require('bullmq');
 const env = require('../config/env');
 const logger = require('../utils/logger');
 const { getRedisConnection } = require('../config/redis');
-const { connectDB } = require('../config/database');
 const { QUEUE_NAMES } = require('./queue');
 
 const ocrJob = require('./prescriptionOCR.job');
@@ -25,9 +24,15 @@ const JOB_MODULES = [
   [QUEUE_NAMES.RECURRING_ORDER, recurringOrderJob],
 ];
 
-async function start() {
-  await connectDB();
-
+/**
+ * Starts every BullMQ worker + the two repeatable scheduled scans. Callable
+ * either from this file's own standalone process (`npm run worker`, for a
+ * separate worker deploy) or in-process from server.js (RUN_WORKERS_INLINE,
+ * for a single free-tier deploy with no separate background-worker
+ * service). Does not call connectDB() or touch process lifecycle - the
+ * caller owns both, since server.js already does its own.
+ */
+async function startWorkers() {
   const workers = JOB_MODULES.map(([name, mod]) => {
     const worker = new Worker(name, mod.processor, {
       connection: getRedisConnection(),
@@ -55,6 +60,13 @@ async function start() {
   );
 
   logger.info(`ePharmacy background workers started (${workers.length} queues) in ${env.nodeEnv} mode`);
+  return workers;
+}
+
+async function standalone() {
+  const { connectDB } = require('../config/database');
+  await connectDB();
+  const workers = await startWorkers();
 
   const shutdown = async () => {
     logger.info('Shutting down workers...');
@@ -65,7 +77,11 @@ async function start() {
   process.on('SIGTERM', shutdown);
 }
 
-start().catch((err) => {
-  logger.error(`Failed to start workers: ${err.stack || err.message}`);
-  process.exit(1);
-});
+if (require.main === module) {
+  standalone().catch((err) => {
+    logger.error(`Failed to start workers: ${err.stack || err.message}`);
+    process.exit(1);
+  });
+}
+
+module.exports = { startWorkers };

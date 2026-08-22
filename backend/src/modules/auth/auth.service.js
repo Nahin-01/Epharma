@@ -15,6 +15,7 @@ const userRepository = require('../users/user.repository');
 const { sanitizeUser } = require('../users/user.service');
 const { ROLES } = require('../../constants/roles');
 const { sendSms } = require('../../integrations/sms/sms.provider');
+const supabaseAdmin = require('../../config/supabase');
 
 function signAccessToken(user) {
   return jwt.sign(
@@ -112,14 +113,15 @@ async function requestOtp({ phone, purpose }) {
   };
   await user.save({ validateBeforeSave: false });
 
-  await sendSms(phone, `Your ePharmacy verification code is ${code}. It expires in ${env.auth.otpExpiresInMinutes} minutes.`);
+  const smsResult = await sendSms(phone, `Your ePharmacy verification code is ${code}. It expires in ${env.auth.otpExpiresInMinutes} minutes.`);
 
-  // SMS_PROVIDER=mock never actually delivers anything - it only logs the
-  // code server-side, which makes the OTP flow untestable end-to-end from
-  // either client (frontend or app) without tailing backend logs. Echo the
-  // code back only when it truly can't have been delivered for real
-  // (mock provider, and never in production) so this stays safe.
-  const devCode = !env.isProduction && env.sms.provider === 'mock' ? code : undefined;
+  // sendSms silently falls back to its mock path whenever the configured
+  // provider is missing required credentials (see sms.provider.js), so
+  // env.sms.provider alone doesn't tell us whether the code was actually
+  // delivered - check what actually happened instead. Only echo the code
+  // back when it truly can't have been delivered for real, and never in
+  // production, so this stays safe.
+  const devCode = !env.isProduction && smsResult.provider === 'mock' ? code : undefined;
 
   return {
     message: 'OTP sent successfully',
@@ -195,10 +197,23 @@ async function logout(userId) {
 async function changePassword(userId, { currentPassword, newPassword }) {
   const user = await userRepository.findByIdWithSecrets(userId);
   if (!user) throw ApiError.notFound('User not found');
-  const valid = await comparePassword(currentPassword, user.passwordHash);
-  if (!valid) throw ApiError.unauthorized('Current password is incorrect');
 
-  user.passwordHash = await hashPassword(newPassword);
+  if (user.supabaseId) {
+    // This account's real password lives in Supabase (manual email/phone
+    // sign-up on the web app or Flutter app both go through Supabase, not
+    // this backend's local passwordHash), so verify against Supabase and
+    // update it there too - otherwise the new password would never
+    // actually work at the next login.
+    const identifier = user.email || user.phone;
+    const valid = await supabaseAdmin.verifyPassword(identifier, currentPassword);
+    if (!valid) throw ApiError.unauthorized('Current password is incorrect');
+    await supabaseAdmin.adminSetPassword(user.supabaseId, newPassword);
+  } else {
+    const valid = await comparePassword(currentPassword, user.passwordHash);
+    if (!valid) throw ApiError.unauthorized('Current password is incorrect');
+    user.passwordHash = await hashPassword(newPassword);
+  }
+
   user.tokenVersion += 1;
   await user.save({ validateBeforeSave: false });
 
@@ -225,7 +240,14 @@ async function resetPassword({ phone, code, newPassword }) {
     throw ApiError.badRequest('Invalid OTP code');
   }
 
-  user.passwordHash = await hashPassword(newPassword);
+  if (user.supabaseId) {
+    // Same reasoning as changePassword: this account's password is
+    // verified by Supabase at login, so the OTP-verified reset has to land
+    // there too, not just on the unused local field.
+    await supabaseAdmin.adminSetPassword(user.supabaseId, newPassword);
+  } else {
+    user.passwordHash = await hashPassword(newPassword);
+  }
   user.otp = undefined;
   user.tokenVersion += 1;
   await user.save({ validateBeforeSave: false });

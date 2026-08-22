@@ -1,6 +1,7 @@
 import 'package:google_sign_in/google_sign_in.dart';
 
 import '../core/app_constants.dart';
+import '../core/validators.dart';
 import '../models/json_helpers.dart';
 import '../models/user.dart';
 import '../network/api_client.dart';
@@ -21,23 +22,45 @@ class AuthResult {
 class AuthService {
   final _client = ApiClient.instance;
 
-  Future<AuthResult> register({required String name, String? email, String? phone, required String password}) {
-    return _client.unwrap(
-      (dio) => dio.post('/auth/register', data: {
-        'name': name,
-        if (email != null && email.isNotEmpty) 'email': email,
-        if (phone != null && phone.isNotEmpty) 'phone': phone,
-        'password': password,
-      }),
-      _mapAuthResult,
+  /// Signs up via Supabase directly - the same identity provider the web
+  /// app uses (see frontend/src/context/AuthContext.jsx's register()) - so
+  /// both clients share one user store instead of this backend's own local
+  /// accounts table.
+  Future<AuthResult> register({required String name, String? email, String? phone, required String password}) async {
+    final hasEmail = email != null && email.isNotEmpty;
+    final hasPhone = phone != null && phone.isNotEmpty;
+    final normalizedPhone = hasPhone ? normalizePhone(phone) : null;
+    final response = await SupabaseAuthClient.instance.signUp(
+      email: hasEmail ? email : null,
+      phone: hasEmail ? null : normalizedPhone,
+      password: password,
+      metadata: {'name': name, 'full_name': name, if (hasPhone) 'phone': normalizedPhone},
     );
+    final accessToken = response['access_token'] as String?;
+    if (accessToken == null) {
+      throw ApiException('Account created. Check your email to confirm your account, then sign in.');
+    }
+    final refreshToken = response['refresh_token'] as String?;
+    await TokenStorage.instance.saveTokens(accessToken: accessToken, refreshToken: refreshToken);
+    final user = await getMe();
+    return AuthResult(user: user, accessToken: accessToken, refreshToken: refreshToken);
   }
 
-  Future<AuthResult> login({required String identifier, required String password}) {
-    return _client.unwrap(
-      (dio) => dio.post('/auth/login', data: {'identifier': identifier, 'password': password}),
-      _mapAuthResult,
+  /// Mirrors the web app's `supabase.auth.signInWithPassword` call so manual
+  /// login behaves identically (same user store, same password rules) on
+  /// both clients.
+  Future<AuthResult> login({required String identifier, required String password}) async {
+    final isEmail = identifier.contains('@');
+    final session = await SupabaseAuthClient.instance.signInWithPassword(
+      email: isEmail ? identifier : null,
+      phone: isEmail ? null : normalizePhone(identifier),
+      password: password,
     );
+    final accessToken = session['access_token'] as String;
+    final refreshToken = session['refresh_token'] as String?;
+    await TokenStorage.instance.saveTokens(accessToken: accessToken, refreshToken: refreshToken);
+    final user = await getMe();
+    return AuthResult(user: user, accessToken: accessToken, refreshToken: refreshToken);
   }
 
   /// Returns the OTP code when the backend's SMS_PROVIDER is "mock" (dev
@@ -45,7 +68,7 @@ class AuthService {
   /// Null in every other case, since the SMS was actually sent for real.
   Future<String?> requestOtp({required String phone, String purpose = 'LOGIN'}) {
     return _client.unwrap(
-      (dio) => dio.post('/auth/otp/request', data: {'phone': phone, 'purpose': purpose}),
+      (dio) => dio.post('/auth/otp/request', data: {'phone': normalizePhone(phone), 'purpose': purpose}),
       (data) => asStringOrNull((data as Map<String, dynamic>?)?['devCode']),
     );
   }
@@ -61,7 +84,7 @@ class AuthService {
   }) {
     return _client.unwrap(
       (dio) => dio.post('/auth/otp/verify', data: {
-        'phone': phone,
+        'phone': normalizePhone(phone),
         'code': code,
         'purpose': purpose,
         if (name != null && name.isNotEmpty) 'name': name,
@@ -107,14 +130,14 @@ class AuthService {
   /// Same dev-only devCode contract as [requestOtp] above.
   Future<String?> forgotPassword(String phone) {
     return _client.unwrap(
-      (dio) => dio.post('/auth/forgot-password', data: {'phone': phone}),
+      (dio) => dio.post('/auth/forgot-password', data: {'phone': normalizePhone(phone)}),
       (data) => asStringOrNull((data as Map<String, dynamic>?)?['devCode']),
     );
   }
 
   Future<void> resetPassword({required String phone, required String code, required String newPassword}) {
     return _client.unwrap(
-      (dio) => dio.post('/auth/reset-password', data: {'phone': phone, 'code': code, 'newPassword': newPassword}),
+      (dio) => dio.post('/auth/reset-password', data: {'phone': normalizePhone(phone), 'code': code, 'newPassword': newPassword}),
       (_) {},
     );
   }

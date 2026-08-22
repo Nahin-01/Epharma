@@ -1,0 +1,12 @@
+# Deployment credentials - these carry live API tokens and must never be
+# committed. Keep them local only; deployment platforms (Vercel/Render) take
+# env vars through their own dashboards/CLI login, not a checked-in file.
+.env.vercel
+.env.render
+.env*.local
+
+node_modules/
+dist/
+build/
+.DS_Store
+*.log

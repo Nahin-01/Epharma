@@ -17,6 +17,7 @@ async function uploadPrescription({ customerId, files, source = 'UPLOAD' }) {
     const { key } = await storage.save(file.buffer, {
       folder: `prescriptions/${customerId}`,
       filename: `${Date.now()}-${file.originalname.replace(/\s+/g, '_')}`,
+      contentType: file.mimetype,
     });
     storedFiles.push({
       storageKey: key,
@@ -129,6 +130,24 @@ const DOSAGE_FORM_STOPWORDS = new Set([
   'cream', 'ointment', 'oint', 'drops', 'drop', 'inhaler', 'device',
 ]);
 
+// Real prescriptions are mostly letterhead/metadata, not drug lines: doctor
+// name & credentials, clinic address, phone, timing, patient info, dates,
+// "advice given", follow-up, signature. Left unfiltered, every one of those
+// OCR lines was being shown to the customer as a "detected medicine" that's
+// "not in database" - noisy and misleading. Lines matching this are almost
+// never a drug entry, so they're dropped outright before matching.
+const NON_MEDICINE_LINE_PATTERN =
+  /\b(dr\.?|prof\.?|m\.?b\.?b\.?s\.?|m\.?d\.?|m\.?s\.?|d\.?g\.?o\.?|reg\.?\s*no\.?|mob\.?\s*no\.?|ph\s*:|phone|tel\.?\s*:|fax|address|near\b|pin\s*:|pincode|timing|closed|clinic|hospital|opd|patient|signature|follow[\s-]?up|advice|chart|age\s*:|sex\s*:|weight|height|\bbp\s*:|temp\.?\s*:|vitals?)\b/i;
+const DATE_TIME_LINE_PATTERN =
+  /\b\d{1,2}[:.]\d{2}\s*(am|pm)?\b|\b\d{1,2}[-/][a-z]{3,9}[-/]\d{2,4}\b|\b(am|pm)\s*-\s*\d{1,2}[:.]\d{2}/i;
+
+// The inverse signal: a strength, dosage form, or frequency abbreviation is
+// what actually distinguishes a drug line from prose, so a line carrying one
+// of these is kept even when it doesn't match anything in the catalogue -
+// that's a real medicine we just don't stock, not noise.
+const DRUG_SIGNAL_PATTERN =
+  /\b(tab|cap|syp|inj|susp|oint|drop|gel|cream|lotion|tablet|capsule|syrup|injection|suspension|ointment)\b|\d+\s?(mg|mcg|ml|g|iu)\b|\b(od|bd|bid|tds|tid|qid|hs|sos|prn|stat)\b/i;
+
 function fuzzyTokenPresent(lineTokens, token) {
   if (token.length < 4) return lineTokens.includes(token);
   const maxDistance = token.length > 7 ? 2 : 1;
@@ -185,6 +204,9 @@ async function matchMedicinesFromText(rawText) {
 
   const matches = [];
   for (const line of lines) {
+    if (line.length < 3) continue;
+    if (NON_MEDICINE_LINE_PATTERN.test(line) || DATE_TIME_LINE_PATTERN.test(line)) continue;
+
     const lineNormalized = normalizeText(line);
     const lineTokens = lineNormalized.split(' ').filter(Boolean);
 
@@ -201,6 +223,12 @@ async function matchMedicinesFromText(rawText) {
         best = { product: candidate.product._id, productName: candidate.product.name, confidence };
       }
     }
+
+    // No catalogue match and nothing that even looks like a strength/dosage
+    // form/frequency - almost certainly not a drug line at all (a stray
+    // header, a table artifact, page furniture), so it's dropped rather than
+    // shown as a fake "not in database" result.
+    if (!best && !DRUG_SIGNAL_PATTERN.test(line)) continue;
 
     matches.push({
       text: line,

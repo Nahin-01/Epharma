@@ -66,13 +66,19 @@ async function resolveSupabaseUser(token) {
     $or: [
       { supabaseId: supabaseUser.id },
       ...(supabaseUser.email ? [{ email: supabaseUser.email.toLowerCase() }] : []),
+      ...(supabaseUser.phone ? [{ phone: supabaseUser.phone }] : []),
     ],
   });
   if (!user) {
+    // email/phone are sparse-unique in the User schema, which only ignores
+    // a field that's absent entirely - Supabase returns '' (not undefined)
+    // for whichever identifier a user didn't sign up with, and passing that
+    // through verbatim made every second phone-less (or email-less) signup
+    // collide on a shared "" value with a 409. Omit falsy values instead.
     user = await User.create({
       supabaseId: supabaseUser.id,
-      email: supabaseUser.email,
-      phone: supabaseUser.phone,
+      ...(supabaseUser.email ? { email: supabaseUser.email } : {}),
+      ...(supabaseUser.phone ? { phone: supabaseUser.phone } : {}),
       name: metadata.full_name || metadata.name,
       role: 'CUSTOMER',
       isActive: true,

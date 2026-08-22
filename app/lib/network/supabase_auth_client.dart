@@ -30,6 +30,38 @@ class SupabaseAuthClient {
     }, grantType: 'id_token');
   }
 
+  /// Email/phone + password login - mirrors the web app's
+  /// `supabase.auth.signInWithPassword` (see frontend/src/context/AuthContext.jsx).
+  Future<Map<String, dynamic>> signInWithPassword({String? email, String? phone, required String password}) {
+    return _post({
+      if (email != null) 'email': email,
+      if (phone != null) 'phone': phone,
+      'password': password,
+    }, grantType: 'password');
+  }
+
+  /// Returns the raw signup response, which is `{...user, id: ...}` with no
+  /// `access_token` when Supabase requires email/phone confirmation first -
+  /// callers must check for that case (see AuthService.register).
+  Future<Map<String, dynamic>> signUp({
+    String? email,
+    String? phone,
+    required String password,
+    Map<String, dynamic>? metadata,
+  }) async {
+    try {
+      final response = await _dio.post('/signup', data: {
+        if (email != null) 'email': email,
+        if (phone != null) 'phone': phone,
+        'password': password,
+        if (metadata != null) 'data': metadata,
+      });
+      return response.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      throw _mapDioError(e);
+    }
+  }
+
   Future<Map<String, dynamic>> refresh(String refreshToken) {
     return _post({'refresh_token': refreshToken}, grantType: 'refresh_token');
   }
@@ -39,13 +71,17 @@ class SupabaseAuthClient {
       final response = await _dio.post('/token', queryParameters: {'grant_type': grantType}, data: data);
       return response.data as Map<String, dynamic>;
     } on DioException catch (e) {
-      final body = e.response?.data;
-      final message = body is Map && body['error_description'] is String
-          ? body['error_description'] as String
-          : body is Map && body['msg'] is String
-              ? body['msg'] as String
-              : 'Could not reach the sign-in service. Please try again.';
-      throw ApiException(message, statusCode: e.response?.statusCode);
+      throw _mapDioError(e);
     }
+  }
+
+  ApiException _mapDioError(DioException e) {
+    final body = e.response?.data;
+    final message = body is Map && body['error_description'] is String
+        ? body['error_description'] as String
+        : body is Map && body['msg'] is String
+            ? body['msg'] as String
+            : 'Could not reach the sign-in service. Please try again.';
+    return ApiException(message, statusCode: e.response?.statusCode);
   }
 }

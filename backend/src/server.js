@@ -17,6 +17,16 @@ async function start() {
     logger.error('Server will continue starting so /health reports a clear "degraded" status instead of crash-looping.');
   }
 
+  if (env.jobs.runInline) {
+    try {
+      const { startWorkers } = require('./jobs/worker');
+      await startWorkers();
+      logger.info('Background workers started in-process (RUN_WORKERS_INLINE=true)');
+    } catch (err) {
+      logger.error(`Failed to start in-process workers: ${err.message}`);
+    }
+  }
+
   server = app.listen(env.port, () => {
     logger.info(`${env.appName} backend listening on port ${env.port} [${env.nodeEnv}]`);
     logger.info(`API base: http://localhost:${env.port}${env.apiPrefix}`);

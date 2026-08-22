@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../models/user.dart';
 import '../network/api_client.dart';
+import '../network/api_exception.dart';
 import '../network/token_storage.dart';
 import '../services/auth_service.dart';
 
@@ -33,14 +34,42 @@ class AuthProvider extends ChangeNotifier {
       notifyListeners();
       return;
     }
-    try {
-      _user = await _authService.getMe();
-      _status = AuthStatus.authenticated;
-    } catch (_) {
-      await TokenStorage.instance.clear();
-      _user = null;
-      _status = AuthStatus.unauthenticated;
+    // A backend that's briefly unreachable (dev server restarting, phone
+    // momentarily off Wi-Fi, etc.) is not the same as an actually-invalid
+    // session - retry once before giving up, and even then only clear the
+    // stored tokens when the server genuinely rejected them (a real
+    // ApiException with a status code), not on a plain connectivity
+    // failure. Wiping a valid session just because of a transient network
+    // hiccup meant the user could get logged out permanently for no reason.
+    for (var attempt = 0; attempt < 2; attempt++) {
+      try {
+        _user = await _authService.getMe();
+        _status = AuthStatus.authenticated;
+        notifyListeners();
+        return;
+      } on ApiException catch (e) {
+        if (e.statusCode != null) {
+          await TokenStorage.instance.clear();
+          _user = null;
+          _status = AuthStatus.unauthenticated;
+          notifyListeners();
+          return;
+        }
+        if (attempt == 0) {
+          await Future.delayed(const Duration(seconds: 2));
+        }
+      } catch (_) {
+        await TokenStorage.instance.clear();
+        _user = null;
+        _status = AuthStatus.unauthenticated;
+        notifyListeners();
+        return;
+      }
     }
+    // Still unreachable after the retry - stay logged out for this launch,
+    // but keep the tokens so the next successful launch restores the
+    // session automatically instead of forcing a fresh login.
+    _status = AuthStatus.unauthenticated;
     notifyListeners();
   }
 

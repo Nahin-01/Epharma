@@ -4,8 +4,10 @@ import '../../core/app_colors.dart';
 import '../../core/formatters.dart';
 import '../../core/order_status.dart';
 import '../../models/order.dart';
+import '../../models/payment.dart';
 import '../../network/api_exception.dart';
 import '../../services/order_service.dart';
+import '../../services/payment_service.dart';
 import '../../widgets/app_button.dart';
 import '../../widgets/app_loader.dart';
 import '../../widgets/empty_state.dart';
@@ -25,10 +27,13 @@ class OrderDetailScreen extends StatefulWidget {
 
 class _OrderDetailScreenState extends State<OrderDetailScreen> {
   final _orderService = OrderService();
+  final _paymentService = PaymentService();
 
   Order? _order;
+  Payment? _payment;
   bool _loading = true;
   bool _cancelling = false;
+  bool _completingPayment = false;
   String? _error;
 
   @override
@@ -44,7 +49,17 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     });
     try {
       final order = await _orderService.getById(widget.orderId);
-      setState(() => _order = order);
+      Payment? payment;
+      try {
+        payment = await _paymentService.getByOrder(widget.orderId);
+      } catch (_) {
+        // Payment record may not be visible yet right after checkout - the
+        // order itself still renders fine without it.
+      }
+      setState(() {
+        _order = order;
+        _payment = payment;
+      });
     } on ApiException catch (e) {
       setState(() => _error = e.message);
     } catch (e) {
@@ -63,6 +78,28 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
     } finally {
       if (mounted) setState(() => _cancelling = false);
+    }
+  }
+
+  /// Demo/sandbox payment completion - see PaymentService.completeMock. No
+  /// real gateway redirect exists yet, so this is how a non-COD checkout
+  /// reaches PAID during development or a live demo.
+  Future<void> _completeMockPayment() async {
+    final payment = _payment;
+    if (payment == null) return;
+    setState(() => _completingPayment = true);
+    try {
+      await _paymentService.completeMock(payment.transactionId);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Payment marked as completed (demo gateway)')),
+        );
+      }
+      await _load();
+    } on ApiException catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+    } finally {
+      if (mounted) setState(() => _completingPayment = false);
     }
   }
 
@@ -192,6 +229,14 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                 _KeyValueRow(label: 'Delivery', value: formatBDT(order.deliveryCharge)),
                 const Divider(height: 20),
                 _KeyValueRow(label: 'Total', value: formatBDT(order.total), bold: true),
+                if (_payment != null && _payment!.method != 'COD' && _payment!.status == 'PROCESSING') ...[
+                  const SizedBox(height: 14),
+                  AppButton(
+                    label: 'Complete payment (demo)',
+                    loading: _completingPayment,
+                    onPressed: _completeMockPayment,
+                  ),
+                ],
               ],
             ),
           ),

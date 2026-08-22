@@ -45,8 +45,7 @@ async function processor(job) {
 
   let buffer = null;
   try {
-    const fs = require('fs');
-    buffer = await fs.promises.readFile(storage.resolvePath(file.storageKey));
+    buffer = await storage.getBuffer(file.storageKey);
   } catch (err) {
     logger.error(`[ocr-job] Could not read stored file for OCR: ${err.message}`);
   }

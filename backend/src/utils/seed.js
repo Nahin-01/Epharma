@@ -1,15 +1,51 @@
 'use strict';
 
 /**
- * Seeds a minimal but functional dataset: a super admin account, a couple
- * of catalog categories/products, and a default delivery zone. Run with
- * `npm run seed` after MongoDB is up. Safe to re-run (idempotent upserts).
+ * Seeds a minimal but functional dataset: a super admin account, a demo
+ * customer account, a catalog of realistic products, and a default delivery
+ * zone. Run with `npm run seed` after MongoDB is up. Safe to re-run
+ * (idempotent upserts).
  */
 
+const axios = require('axios');
 const { connectDB, disconnectDB } = require('../config/database');
 const logger = require('./logger');
 const { hashPassword } = require('./crypto');
 const { ROLES } = require('../constants/roles');
+const env = require('../config/env');
+
+/**
+ * Customer login now goes entirely through Supabase (see auth unification),
+ * so a demo customer has to be created via Supabase's Admin API rather than
+ * a plain Mongo insert - Supabase owns the credential, this backend only
+ * mirrors the profile (lazily, on first authenticated request).
+ */
+async function seedDemoCustomer(email, password, name) {
+  if (!env.supabase.url || !env.supabase.serviceRoleKey) {
+    logger.warn('Skipping demo customer: SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY not configured');
+    return;
+  }
+  try {
+    await axios.post(
+      `${env.supabase.url}/auth/v1/admin/users`,
+      { email, password, email_confirm: true, user_metadata: { full_name: name, name } },
+      {
+        headers: {
+          apikey: env.supabase.serviceRoleKey,
+          Authorization: `Bearer ${env.supabase.serviceRoleKey}`,
+        },
+      }
+    );
+    logger.info(`Created demo customer: ${email} / ${password}`);
+  } catch (err) {
+    const msg = err.response?.data?.msg || err.response?.data?.message || err.message;
+    if (err.response?.status === 422 || /already.*registered/i.test(msg || '')) {
+      logger.info(`Demo customer already exists: ${email}`);
+    } else {
+      logger.warn(`Could not create demo customer: ${msg}`);
+    }
+  }
+}
 
 async function seed() {
   await connectDB();
@@ -39,6 +75,10 @@ async function seed() {
   } else {
     logger.info(`Super admin already exists: ${adminEmail}`);
   }
+
+  const demoEmail = process.env.SEED_DEMO_EMAIL || 'demo@epharmacy.local';
+  const demoPassword = process.env.SEED_DEMO_PASSWORD || 'Demo1234!';
+  await seedDemoCustomer(demoEmail, demoPassword, 'Demo Customer');
 
   const categoriesSeed = [
     { name: 'Diabetic Care', slug: 'diabetic-care', icon: '🩸' },
