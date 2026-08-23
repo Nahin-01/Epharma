@@ -179,7 +179,9 @@ class _ProductListScreenState extends State<ProductListScreen> {
           crossAxisCount: 2,
           mainAxisSpacing: 14,
           crossAxisSpacing: 12,
-          childAspectRatio: 0.62,
+          // Shorter ratio than before so there's room for the "Add to bag"
+          // button below the price without the card overflowing.
+          childAspectRatio: 0.54,
         ),
         itemCount: _items.length + (_hasMore ? 2 : 0),
         itemBuilder: (context, index) {

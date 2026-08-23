@@ -50,7 +50,7 @@ class ProductGridSkeleton extends StatelessWidget {
         crossAxisCount: 2,
         mainAxisSpacing: 16,
         crossAxisSpacing: 14,
-        childAspectRatio: 0.62,
+        childAspectRatio: 0.54,
       ),
       itemCount: count,
       itemBuilder: (context, index) => const ProductCardSkeleton(width: double.infinity),

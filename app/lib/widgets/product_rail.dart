@@ -56,7 +56,9 @@ class _ProductRailState extends State<ProductRail> {
           SectionHeader(title: widget.title, onViewAll: _items == null ? null : widget.onViewAll),
           const SizedBox(height: 12),
           SizedBox(
-            height: 250,
+            // Tall enough for the image + generic name + 2-line name + price
+            // + the "Add to bag" button, with headroom for larger font scales.
+            height: 320,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 16),
