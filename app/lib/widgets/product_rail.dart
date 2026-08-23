@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/product.dart';
 import '../services/product_service.dart';
 import '../screens/catalog/product_detail_screen.dart';
+import 'add_to_cart.dart';
 import 'product_card.dart';
 import 'section_header.dart';
 import 'skeletons.dart';
@@ -69,6 +70,7 @@ class _ProductRailState extends State<ProductRail> {
                   onTap: () => Navigator.of(context).push(
                     MaterialPageRoute(builder: (_) => ProductDetailScreen(slug: product.slug)),
                   ),
+                  onAdd: () => addToCartFlow(context, product),
                 );
               },
             ),

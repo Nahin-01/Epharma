@@ -4,6 +4,7 @@ import '../../core/app_colors.dart';
 import '../../models/product.dart';
 import '../../network/api_exception.dart';
 import '../../services/product_service.dart';
+import '../../widgets/add_to_cart.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/product_card.dart';
 import '../../widgets/skeletons.dart';
@@ -190,6 +191,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => ProductDetailScreen(slug: product.slug)),
             ),
+            onAdd: () => addToCartFlow(context, product),
           );
         },
       ),
