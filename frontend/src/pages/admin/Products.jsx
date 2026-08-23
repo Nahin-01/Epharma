@@ -20,6 +20,7 @@ const EMPTY_FORM = {
   sellingPrice: '',
   lowStockThreshold: 10,
   status: 'ACTIVE',
+  images: [],
 };
 
 export default function AdminProducts() {
@@ -190,6 +191,7 @@ function ProductFormModal({ open, onClose, product, categories, onSaved, toast }
   const [form, setForm] = useState(EMPTY_FORM);
   const [slugTouched, setSlugTouched] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [error, setError] = useState(null);
 
   useEffect(() => {
@@ -206,6 +208,7 @@ function ProductFormModal({ open, onClose, product, categories, onSaved, toast }
         sellingPrice: product.sellingPrice ?? '',
         lowStockThreshold: product.lowStockThreshold ?? 10,
         status: product.status || 'ACTIVE',
+        images: product.images || [],
       });
       setSlugTouched(true);
     } else {
@@ -222,6 +225,28 @@ function ProductFormModal({ open, onClose, product, categories, onSaved, toast }
       if (key === 'name' && !slugTouched) next.slug = slugify(value);
       return next;
     });
+  };
+
+  const handleImageUpload = async (e) => {
+    const files = Array.from(e.target.files || []);
+    e.target.value = '';
+    if (files.length === 0) return;
+    setUploading(true);
+    setError(null);
+    try {
+      for (const file of files) {
+        const { url } = await productsApi.uploadImage(file);
+        setForm((f) => ({ ...f, images: [...f.images, url] }));
+      }
+    } catch (err) {
+      setError(err.message || 'Could not upload image');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const removeImage = (index) => {
+    setForm((f) => ({ ...f, images: f.images.filter((_, i) => i !== index) }));
   };
 
   const handleSubmit = async (e) => {
@@ -259,6 +284,34 @@ function ProductFormModal({ open, onClose, product, categories, onSaved, toast }
       <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field label="Name" className="sm:col-span-2">
           <input className="input" value={form.name} onChange={update('name')} required minLength={2} />
+        </Field>
+        <Field label="Product images" className="sm:col-span-2">
+          <div className="flex flex-wrap gap-3">
+            {form.images.map((url, i) => (
+              <div key={url} className="group relative h-20 w-20 overflow-hidden rounded-lg border border-slate-200">
+                <img src={url} alt="" className="h-full w-full object-cover" />
+                <button
+                  type="button"
+                  onClick={() => removeImage(i)}
+                  className="absolute right-0.5 top-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-slate-900/70 text-xs text-white opacity-0 transition-opacity group-hover:opacity-100"
+                  aria-label="Remove image"
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+            <label className="flex h-20 w-20 cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed border-slate-300 text-slate-400 hover:border-brand-400 hover:text-brand-600">
+              {uploading ? (
+                <span className="text-[11px] font-semibold">Uploading…</span>
+              ) : (
+                <>
+                  <span className="text-xl leading-none">+</span>
+                  <span className="text-[10px] font-semibold">Add image</span>
+                </>
+              )}
+              <input type="file" accept="image/jpeg,image/png,image/webp" multiple hidden onChange={handleImageUpload} disabled={uploading} />
+            </label>
+          </div>
         </Field>
         <Field label="Slug" hint="Used in the product URL" className="sm:col-span-2">
           <input

@@ -1,8 +1,29 @@
 'use strict';
 
+const crypto = require('crypto');
 const asyncHandler = require('../../utils/asyncHandler');
 const ApiResponse = require('../../utils/apiResponse');
+const ApiError = require('../../utils/apiError');
+const env = require('../../config/env');
+const { getStorageProvider } = require('../../config/storage');
 const productService = require('./product.service');
+
+const EXT_BY_MIME = { 'image/jpeg': 'jpg', 'image/jpg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' };
+
+const uploadImage = asyncHandler(async (req, res) => {
+  if (!req.file) throw ApiError.badRequest('Image file is required');
+  const provider = getStorageProvider();
+  const ext = EXT_BY_MIME[req.file.mimetype] || 'jpg';
+  const filename = `${Date.now()}-${crypto.randomBytes(6).toString('hex')}.${ext}`;
+  const { key } = await provider.save(req.file.buffer, {
+    folder: 'products',
+    filename,
+    contentType: req.file.mimetype,
+    bucket: env.supabase.productImagesBucket,
+  });
+  const url = provider.getPublicUrl(key, { bucket: env.supabase.productImagesBucket });
+  return ApiResponse.created(res, { url }, 'Image uploaded successfully');
+});
 
 const create = asyncHandler(async (req, res) => {
   const product = await productService.create(req.body, req.user);
@@ -39,4 +60,4 @@ const getRelated = asyncHandler(async (req, res) => {
   return ApiResponse.ok(res, related);
 });
 
-module.exports = { create, update, remove, getById, getBySlug, list, getRelated };
+module.exports = { create, update, remove, getById, getBySlug, list, getRelated, uploadImage };

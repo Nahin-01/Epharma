@@ -62,6 +62,10 @@ const env = {
     serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
     jwtSecret: process.env.SUPABASE_JWT_SECRET || '',
     storageBucket: process.env.SUPABASE_STORAGE_BUCKET || 'prescriptions',
+    // Separate *public* bucket - product images need to be directly
+    // embeddable in <img> tags across the storefront without a signed URL's
+    // expiry, unlike the private prescriptions bucket above.
+    productImagesBucket: process.env.SUPABASE_PRODUCT_IMAGES_BUCKET || 'product-images',
   },
 
   redis: {

@@ -9,6 +9,14 @@ export const productsApi = {
   create: (payload) => unwrap(apiClient.post('/products', payload)),
   update: (id, payload) => unwrap(apiClient.patch(`/products/${id}`, payload)),
   remove: (id) => unwrap(apiClient.delete(`/products/${id}`)),
+  uploadImage: (file) => {
+    // Content-Type is intentionally left unset — axios auto-detects FormData
+    // and sets the multipart boundary itself; setting it manually here would
+    // omit that boundary and break the upload.
+    const form = new FormData();
+    form.append('image', file);
+    return unwrap(apiClient.post('/products/upload-image', form));
+  },
 };
 
 export const categoriesApi = {

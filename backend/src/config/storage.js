@@ -54,6 +54,14 @@ class LocalStorageProvider {
     return `/api/v1/files/signed?key=${encodeURIComponent(key)}&token=${token}`;
   }
 
+  /** No public/private distinction on local disk - a long-lived signed link
+   * is the closest equivalent, good enough for local dev. */
+  getPublicUrl(key) {
+    const { createSignedToken } = require('../utils/signedUrl');
+    const token = createSignedToken(key, 60 * 24 * 365);
+    return `/api/v1/files/signed?key=${encodeURIComponent(key)}&token=${token}`;
+  }
+
   resolvePath(key) {
     return path.join(this.root, key);
   }
@@ -83,10 +91,10 @@ class SupabaseStorageProvider {
     };
   }
 
-  async save(buffer, { folder = 'misc', filename, contentType } = {}) {
+  async save(buffer, { folder = 'misc', filename, contentType, bucket } = {}) {
     const safeName = filename || `${Date.now()}-${crypto.randomBytes(6).toString('hex')}`;
     const key = path.posix.join(folder, safeName);
-    await axios.post(`${this.base}/object/${this.bucket}/${key}`, buffer, {
+    await axios.post(`${this.base}/object/${bucket || this.bucket}/${key}`, buffer, {
       headers: { ...this.headers, 'Content-Type': contentType || 'application/octet-stream' },
       maxBodyLength: Infinity,
       maxContentLength: Infinity,
@@ -94,12 +102,17 @@ class SupabaseStorageProvider {
     return { key };
   }
 
-  async remove(key) {
+  async remove(key, { bucket } = {}) {
     try {
-      await axios.delete(`${this.base}/object/${this.bucket}/${key}`, { headers: this.headers });
+      await axios.delete(`${this.base}/object/${bucket || this.bucket}/${key}`, { headers: this.headers });
     } catch (err) {
       logger.warn(`Failed to remove Supabase file ${key}: ${err.message}`);
     }
+  }
+
+  /** Direct, non-expiring URL for a *public* bucket - no signing needed. */
+  getPublicUrl(key, { bucket } = {}) {
+    return `${this.base}/object/public/${bucket || this.bucket}/${key}`;
   }
 
   /** Mirrors LocalStorageProvider.getSignedUrl's contract but returns a real
