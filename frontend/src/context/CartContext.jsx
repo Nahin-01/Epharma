@@ -70,16 +70,51 @@ export function CartProvider({ children }) {
     return summary;
   }, []);
 
+  // Quantity +/- and remove update the on-screen cart immediately from data
+  // we already have (no waiting on a round trip to feel the click register),
+  // then reconcile with the server's authoritative summary once it replies.
+  // Any failure rolls the optimistic guess back to what was there before.
+  const recomputeSummary = (current, items) => {
+    const subtotal = items.reduce((sum, i) => sum + i.lineTotal, 0);
+    const itemCount = items.reduce((sum, i) => sum + i.quantity, 0);
+    const total = Math.max(0, subtotal - current.couponDiscount + current.deliveryCharge);
+    return { ...current, items, subtotal, itemCount, total };
+  };
+
   const updateItem = useCallback(async (productId, quantity) => {
-    const summary = await cartApi.updateItem(productId, quantity);
-    setCart(summary);
-    return summary;
+    let previous;
+    setCart((current) => {
+      previous = current;
+      const items = current.items.map((i) =>
+        i.product === productId ? { ...i, quantity, lineTotal: i.unitPrice * quantity } : i
+      );
+      return recomputeSummary(current, items);
+    });
+    try {
+      const summary = await cartApi.updateItem(productId, quantity);
+      setCart(summary);
+      return summary;
+    } catch (err) {
+      setCart(previous);
+      throw err;
+    }
   }, []);
 
   const removeItem = useCallback(async (productId) => {
-    const summary = await cartApi.removeItem(productId);
-    setCart(summary);
-    return summary;
+    let previous;
+    setCart((current) => {
+      previous = current;
+      const items = current.items.filter((i) => i.product !== productId);
+      return recomputeSummary(current, items);
+    });
+    try {
+      const summary = await cartApi.removeItem(productId);
+      setCart(summary);
+      return summary;
+    } catch (err) {
+      setCart(previous);
+      throw err;
+    }
   }, []);
 
   const clear = useCallback(async () => {

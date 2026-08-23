@@ -13,28 +13,24 @@ export default function Cart() {
   const navigate = useNavigate();
   const [couponInput, setCouponInput] = useState(cart.couponCode || '');
   const [applying, setApplying] = useState(false);
-  const [busyProductId, setBusyProductId] = useState(null);
 
+  // updateItem/removeItem update the screen immediately and only roll back
+  // if the background request actually fails, so there's nothing to disable
+  // here while it's in flight.
   const handleQuantity = async (productId, quantity) => {
-    setBusyProductId(productId);
     try {
       await updateItem(productId, quantity);
     } catch (err) {
       toast.error(err.message || 'Could not update item');
-    } finally {
-      setBusyProductId(null);
     }
   };
 
   const handleRemove = async (productId) => {
-    setBusyProductId(productId);
     try {
       await removeItem(productId);
       toast.success('Item removed');
     } catch (err) {
       toast.error(err.message || 'Could not remove item');
-    } finally {
-      setBusyProductId(null);
     }
   };
 
@@ -107,7 +103,6 @@ export default function Cart() {
                   <button
                     type="button"
                     onClick={() => handleRemove(item.product)}
-                    disabled={busyProductId === item.product}
                     className="text-xs font-medium text-slate-400 hover:text-red-600"
                   >
                     Remove
@@ -118,7 +113,6 @@ export default function Cart() {
                     <button
                       type="button"
                       className="px-2.5 py-1 text-slate-600 disabled:opacity-40"
-                      disabled={busyProductId === item.product}
                       onClick={() => handleQuantity(item.product, item.quantity - 1)}
                     >
                       −
@@ -127,7 +121,6 @@ export default function Cart() {
                     <button
                       type="button"
                       className="px-2.5 py-1 text-slate-600 disabled:opacity-40"
-                      disabled={busyProductId === item.product}
                       onClick={() => handleQuantity(item.product, item.quantity + 1)}
                     >
                       +

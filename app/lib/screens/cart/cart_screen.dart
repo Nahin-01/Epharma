@@ -25,7 +25,6 @@ class CartScreen extends StatefulWidget {
 
 class _CartScreenState extends State<CartScreen> {
   final _couponController = TextEditingController();
-  String? _busyProductId;
   bool _applyingCoupon = false;
 
   @override
@@ -34,9 +33,11 @@ class _CartScreenState extends State<CartScreen> {
     super.dispose();
   }
 
+  // CartProvider.updateItem/removeItem update the screen immediately from
+  // data already on hand and only roll back if the request actually fails,
+  // so there's nothing here that needs a busy/disabled state to wait on.
   Future<void> _changeQuantity(String productId, int quantity) async {
     final cartProvider = context.read<CartProvider>();
-    setState(() => _busyProductId = productId);
     try {
       if (quantity <= 0) {
         await cartProvider.removeItem(productId);
@@ -45,8 +46,6 @@ class _CartScreenState extends State<CartScreen> {
       }
     } on ApiException catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
-    } finally {
-      if (mounted) setState(() => _busyProductId = null);
     }
   }
 
@@ -91,7 +90,6 @@ class _CartScreenState extends State<CartScreen> {
                 }
                 return _CartContent(
                   cart: cart,
-                  busyProductId: _busyProductId,
                   couponController: _couponController,
                   applyingCoupon: _applyingCoupon,
                   onQuantityChanged: _changeQuantity,
@@ -105,7 +103,6 @@ class _CartScreenState extends State<CartScreen> {
 
 class _CartContent extends StatelessWidget {
   final CartSummary cart;
-  final String? busyProductId;
   final TextEditingController couponController;
   final bool applyingCoupon;
   final void Function(String productId, int quantity) onQuantityChanged;
@@ -113,7 +110,6 @@ class _CartContent extends StatelessWidget {
 
   const _CartContent({
     required this.cart,
-    required this.busyProductId,
     required this.couponController,
     required this.applyingCoupon,
     required this.onQuantityChanged,
@@ -145,7 +141,6 @@ class _CartContent extends StatelessWidget {
                   padding: const EdgeInsets.only(bottom: 12),
                   child: _CartItemTile(
                     item: item,
-                    busy: busyProductId == item.productId,
                     onQuantityChanged: (q) => onQuantityChanged(item.productId, q),
                   ),
                 ),
@@ -188,10 +183,9 @@ class _CartContent extends StatelessWidget {
 
 class _CartItemTile extends StatelessWidget {
   final CartItem item;
-  final bool busy;
   final ValueChanged<int> onQuantityChanged;
 
-  const _CartItemTile({required this.item, required this.busy, required this.onQuantityChanged});
+  const _CartItemTile({required this.item, required this.onQuantityChanged});
 
   @override
   Widget build(BuildContext context) {
@@ -228,7 +222,7 @@ class _CartItemTile extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    QuantityStepper(quantity: item.quantity, busy: busy, onChanged: onQuantityChanged),
+                    QuantityStepper(quantity: item.quantity, onChanged: onQuantityChanged),
                     Text(formatBDT(item.lineTotal), style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.brand700, fontSize: 14)),
                   ],
                 ),
