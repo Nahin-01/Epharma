@@ -148,6 +148,35 @@ const DATE_TIME_LINE_PATTERN =
 const DRUG_SIGNAL_PATTERN =
   /\b(tab|cap|syp|inj|susp|oint|drop|gel|cream|lotion|tablet|capsule|syrup|injection|suspension|ointment)\b|\d+\s?(mg|mcg|ml|g|iu)\b|\b(od|bd|bid|tds|tid|qid|hs|sos|prn|stat)\b/i;
 
+// Dosage/quantity instructions ("1+0+1 after meal", "Take 2 tablets twice
+// daily", "Tab 1 BD x 5 days") describe HOW to take a medicine, not WHICH
+// one - but they carry the exact same drug-signal words (tab, mg, bd...) as
+// a real drug line, so DRUG_SIGNAL_PATTERN alone can't tell them apart and
+// was surfacing these as fake "medicine not in database" entries. Strip
+// every dosage-form/frequency/route/instruction word and bare number out of
+// a line: a real drug line still has the brand/generic name left over; a
+// pure instruction line has nothing left.
+const INSTRUCTION_STOPWORDS = new Set([
+  'tab', 'tabs', 'tablet', 'tablets', 'cap', 'caps', 'capsule', 'capsules',
+  'syp', 'syrup', 'inj', 'injection', 'susp', 'suspension', 'oint', 'ointment',
+  'drop', 'drops', 'gel', 'cream', 'lotion',
+  'od', 'bd', 'bid', 'tds', 'tid', 'qid', 'hs', 'sos', 'prn', 'stat',
+  'before', 'after', 'meal', 'meals', 'food', 'daily', 'day', 'days',
+  'morning', 'evening', 'night', 'noon', 'afternoon',
+  'x', 'for', 'per', 'take', 'times', 'time', 'a', 'an', 'the', 'of', 'to',
+  'with', 'and', 'or', 'as', 'needed', 'once', 'twice', 'thrice',
+  'week', 'weeks', 'month', 'months', 'dose', 'doses', 'course',
+]);
+
+/** True once every strength/unit ("500mg"), dosage-form, frequency, and
+ * instruction word is stripped and nothing but bare numbers remain - i.e.
+ * the line only ever described a quantity/schedule, never named a drug. */
+function isDosageInstructionOnly(lineTokens) {
+  return lineTokens.every(
+    (t) => INSTRUCTION_STOPWORDS.has(t) || /^\d+$/.test(t) || /^\d+(mg|mcg|ml|g|iu)$/.test(t)
+  );
+}
+
 function fuzzyTokenPresent(lineTokens, token) {
   if (token.length < 4) return lineTokens.includes(token);
   const maxDistance = token.length > 7 ? 2 : 1;
@@ -224,11 +253,17 @@ async function matchMedicinesFromText(rawText) {
       }
     }
 
-    // No catalogue match and nothing that even looks like a strength/dosage
-    // form/frequency - almost certainly not a drug line at all (a stray
-    // header, a table artifact, page furniture), so it's dropped rather than
-    // shown as a fake "not in database" result.
-    if (!best && !DRUG_SIGNAL_PATTERN.test(line)) continue;
+    if (!best) {
+      // No catalogue match and nothing that even looks like a strength/
+      // dosage form/frequency - almost certainly not a drug line at all (a
+      // stray header, a table artifact, page furniture), so it's dropped
+      // rather than shown as a fake "not in database" result.
+      if (!DRUG_SIGNAL_PATTERN.test(line)) continue;
+      // It does look drug-signal-ish, but only because it's a pure dosage/
+      // quantity instruction ("1+0+1 after meal") with no drug name in it -
+      // drop this too, same reason.
+      if (isDosageInstructionOnly(lineTokens)) continue;
+    }
 
     matches.push({
       text: line,
