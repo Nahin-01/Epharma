@@ -106,7 +106,13 @@ class AuthService {
   /// (see auth.middleware.js), so the rest of the app never has to know the
   /// difference.
   Future<AuthResult?> googleSignIn() async {
-    final googleAccount = await GoogleSignIn(serverClientId: AppConstants.googleClientId).signIn();
+    final google = GoogleSignIn(serverClientId: AppConstants.googleClientId);
+    // Google Play Services caches the last-used account for this app and
+    // silently reuses it on the next signIn() instead of showing the account
+    // picker. Signing out first clears that cache so the chooser always
+    // appears, letting the user pick a different Google account.
+    await google.signOut();
+    final googleAccount = await google.signIn();
     if (googleAccount == null) return null;
 
     final googleAuth = await googleAccount.authentication;

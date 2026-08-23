@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/app_colors.dart';
 import '../../providers/auth_provider.dart';
@@ -8,6 +9,10 @@ import '../auth/login_screen.dart';
 import '../orders/orders_screen.dart';
 import '../prescriptions/prescriptions_screen.dart';
 import 'addresses_screen.dart';
+
+/// Mirrors the web app's isStaff check (lib/permissions.js) — any role other
+/// than CUSTOMER gets the admin dashboard entry point.
+bool _isStaff(String role) => role != 'CUSTOMER';
 
 class ProfileScreen extends StatelessWidget {
   static const routeName = '/profile';
@@ -92,6 +97,15 @@ class ProfileScreen extends StatelessWidget {
             label: 'Saved Addresses',
             onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AddressesScreen())),
           ),
+          if (_isStaff(user.role))
+            _MenuTile(
+              icon: Icons.admin_panel_settings_outlined,
+              label: 'Admin Panel',
+              onTap: () => launchUrl(
+                Uri.parse('https://epharma-2mo5.vercel.app/admin'),
+                mode: LaunchMode.externalApplication,
+              ),
+            ),
           const SizedBox(height: 18),
           AppButton(
             label: 'Sign out',

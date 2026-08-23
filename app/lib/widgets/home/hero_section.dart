@@ -112,9 +112,9 @@ class HeroSection extends StatelessWidget {
                     const SizedBox(height: 22),
                     Row(
                       children: [
-                        _Stat(value: productCount == null ? null : '${productCount}+', label: 'Medicines in stock'),
+                        _Stat(value: productCount == null ? null : '$productCount+', label: 'Medicines in stock'),
                         const SizedBox(width: 26),
-                        _Stat(value: categoryCount == null ? null : '${categoryCount}+', label: 'Categories to browse'),
+                        _Stat(value: categoryCount == null ? null : '$categoryCount+', label: 'Categories to browse'),
                         const SizedBox(width: 26),
                         const _Stat(value: '10 AM–9 PM', label: 'Prescription support'),
                       ],
