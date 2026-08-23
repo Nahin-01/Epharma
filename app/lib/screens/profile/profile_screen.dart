@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/app_colors.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/app_button.dart';
+import '../admin/admin_panel_screen.dart';
 import '../auth/login_screen.dart';
 import '../orders/orders_screen.dart';
 import '../prescriptions/prescriptions_screen.dart';
@@ -101,10 +101,7 @@ class ProfileScreen extends StatelessWidget {
             _MenuTile(
               icon: Icons.admin_panel_settings_outlined,
               label: 'Admin Panel',
-              onTap: () => launchUrl(
-                Uri.parse('https://epharma-2mo5.vercel.app/admin'),
-                mode: LaunchMode.externalApplication,
-              ),
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AdminPanelScreen())),
             ),
           const SizedBox(height: 18),
           AppButton(
