@@ -62,8 +62,19 @@ class SupabaseAuthClient {
     }
   }
 
+  // Supabase refresh tokens are single-use and rotate on every call - the
+  // old one is rejected once a new one has been issued. Without this guard,
+  // two callers racing on the same stale token (e.g. ApiClient's 401 retry
+  // firing at the same moment AdminPanelScreen seeds a session) would have
+  // the loser's "refresh" rejected as already-used, which ApiClient then
+  // treats as a genuinely expired session and logs the user out. Coalescing
+  // concurrent calls into one in-flight request means every caller gets the
+  // same successful result instead of racing each other.
+  Future<Map<String, dynamic>>? _refreshFuture;
+
   Future<Map<String, dynamic>> refresh(String refreshToken) {
-    return _post({'refresh_token': refreshToken}, grantType: 'refresh_token');
+    _refreshFuture ??= _post({'refresh_token': refreshToken}, grantType: 'refresh_token');
+    return _refreshFuture!.whenComplete(() => _refreshFuture = null);
   }
 
   Future<Map<String, dynamic>> _post(Map<String, dynamic> data, {required String grantType}) async {
